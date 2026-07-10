@@ -1,4 +1,5 @@
 import { StyleSheet, Text, View } from 'react-native';
+import { colors } from '../theme';
 
 type Coords = { latitude: number; longitude: number };
 
@@ -17,8 +18,14 @@ export default function MapScreen({ coords }: { coords: Coords }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
-  title: { fontSize: 18, fontWeight: 'bold', marginBottom: 12 },
-  message: { textAlign: 'center', marginBottom: 8 },
-  coords: { fontFamily: 'monospace' },
+  container: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+    backgroundColor: colors.parchment,
+  },
+  title: { fontSize: 18, fontWeight: 'bold', marginBottom: 12, color: colors.ink },
+  message: { textAlign: 'center', marginBottom: 8, color: colors.inkLight },
+  coords: { fontFamily: 'monospace', color: colors.ink },
 });
