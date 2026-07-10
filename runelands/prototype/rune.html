@@ -1,0 +1,1361 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#f4f1ea">
+<title>rune.</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=MedievalSharp&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+  :root{
+    --paper:#f4f1ea; --paper-2:#ece7dd; --ink:#211f1a; --ink-soft:#5c574c;
+    --line:#d8d1c2; --sage:#3f5d49; --sage-deep:#2c4434; --sage-soft:#e3ebe2;
+    --clay:#b8694a; --honey:#b4842c; --white:#fbf9f4;
+    --dot:rgba(33,31,26,.025);
+    --shadow:0 1px 2px rgba(33,31,26,.06),0 8px 24px rgba(33,31,26,.07);
+    --radius:18px;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;height:100%;}
+  body{
+    font-family:'Hanken Grotesk',system-ui,sans-serif;background:var(--paper);color:var(--ink);
+    line-height:1.5;
+    background-image:radial-gradient(circle at 1px 1px, var(--dot) 1px, transparent 0);
+    background-size:22px 22px;
+    overflow:hidden;
+  }
+  button{font-family:inherit;}
+  #shell{max-width:640px;margin:0 auto;height:100dvh;display:flex;flex-direction:column;position:relative;}
+
+  /* ---------- top bar ---------- */
+  .topbar{
+    display:flex;align-items:center;gap:10px;padding:14px 16px 10px;z-index:600;
+  }
+  .brand{font-family:'MedievalSharp',serif;font-weight:600;font-size:25px;letter-spacing:-.01em;}
+  .brand .dot{color:var(--clay);}
+  .spacer{flex:1;}
+  .lvlchip{
+    display:flex;align-items:center;gap:9px;background:var(--white);border:1px solid var(--line);
+    border-radius:999px;padding:6px 12px 6px 8px;box-shadow:var(--shadow);cursor:pointer;
+  }
+  .lvlnum{
+    width:28px;height:28px;border-radius:50%;background:var(--sage);color:#fff;
+    display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;
+    font-family:'MedievalSharp',serif;
+  }
+  .lvlinfo{display:flex;flex-direction:column;line-height:1.15;}
+  .lvltitle{font-size:12px;font-weight:700;}
+  .xpbar{width:74px;height:4px;background:var(--paper-2);border-radius:99px;margin-top:3px;overflow:hidden;}
+  .xpbar i{display:block;height:100%;background:var(--honey);border-radius:99px;transition:width .5s ease;}
+  .elan{
+    display:flex;align-items:center;gap:5px;background:var(--white);border:1px solid var(--line);
+    border-radius:999px;padding:6px 11px;box-shadow:var(--shadow);font-size:13px;font-weight:700;
+  }
+  .elan .fl{font-size:14px;}
+  .elan.hot{border-color:#e0b26a;background:#faf0dc;color:#8a5f1c;}
+
+  /* ---------- views ---------- */
+  .views{flex:1;position:relative;min-height:0;}
+  .view{position:absolute;inset:0;display:none;overflow-y:auto;padding:4px 16px calc(86px + env(safe-area-inset-bottom));}
+  .view.on{display:block;}
+  #v-carte{padding:0;overflow:hidden;}
+  #map{position:absolute;inset:0;background:var(--paper-2);}
+  .leaflet-container{font-family:'Hanken Grotesk',sans-serif;}
+
+  /* map floating buttons */
+  .fabcol{position:absolute;right:14px;bottom:calc(96px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:10px;z-index:500;}
+  .fab{
+    display:flex;align-items:center;gap:8px;border:none;border-radius:999px;padding:13px 18px;
+    font-size:15px;font-weight:700;cursor:pointer;box-shadow:var(--shadow);
+  }
+  .fab.primary{background:var(--sage);color:#fff;}
+  .fab.ghost{background:var(--white);color:var(--ink);border:1px solid var(--line);}
+  .locbtn{
+    position:absolute;left:14px;bottom:calc(96px + env(safe-area-inset-bottom));z-index:500;
+    width:44px;height:44px;border-radius:50%;border:1px solid var(--line);background:var(--white);
+    box-shadow:var(--shadow);font-size:18px;cursor:pointer;
+  }
+
+  /* ---------- trace sheet ---------- */
+  .sheet{
+    position:absolute;left:0;right:0;bottom:0;z-index:700;background:var(--white);
+    border-radius:22px 22px 0 0;border:1px solid var(--line);border-bottom:none;
+    box-shadow:0 -8px 30px rgba(33,31,26,.14);padding:16px 18px calc(16px + env(safe-area-inset-bottom));
+    transform:translateY(110%);transition:transform .28s cubic-bezier(.3,.9,.3,1);
+  }
+  .sheet.open{transform:translateY(0);}
+  .sheet h3{margin:0 0 3px;font-family:'MedievalSharp',serif;font-weight:600;font-size:19px;}
+  .sheet .hint{font-size:13px;color:var(--ink-soft);margin:0 0 12px;}
+  .tracestats{display:flex;gap:18px;margin-bottom:12px;}
+  .ts b{font-family:'MedievalSharp',serif;font-size:22px;font-weight:600;display:block;line-height:1.1;}
+  .ts span{font-size:12px;color:var(--ink-soft);}
+  .sports{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;}
+  .sport{
+    border:1.5px solid var(--line);background:var(--paper);border-radius:999px;padding:8px 15px;
+    font-size:14px;font-weight:600;cursor:pointer;color:var(--ink-soft);
+  }
+  .sport.sel{background:var(--sage-soft);border-color:var(--sage);color:var(--sage-deep);}
+  .sheetrow{display:flex;gap:9px;}
+  .btn{
+    flex:1;border:none;border-radius:14px;padding:13px;font-size:15px;font-weight:700;cursor:pointer;
+  }
+  .btn.go{background:var(--sage);color:#fff;}
+  .btn.go:disabled{background:var(--paper-2);color:var(--ink-soft);cursor:default;}
+  .btn.quiet{background:var(--paper);border:1.5px solid var(--line);color:var(--ink);}
+  .btn.small{flex:0 0 auto;padding:13px 15px;}
+  .btn.danger{background:#f4e2dc;color:#8d3325;}
+
+  /* ---------- cards / sections ---------- */
+  h2.sec{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:var(--ink-soft);margin:22px 2px 8px;}
+  .card{background:var(--white);border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px;margin-bottom:10px;box-shadow:var(--shadow);}
+  .statgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .stat{background:var(--white);border:1px solid var(--line);border-radius:var(--radius);padding:13px 15px;box-shadow:var(--shadow);}
+  .stat b{font-family:'MedievalSharp',serif;font-size:24px;font-weight:600;display:block;line-height:1.15;}
+  .stat span{font-size:12px;color:var(--ink-soft);}
+
+  /* futhark grid */
+  .futh{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;}
+  .fu{
+    aspect-ratio:1;border-radius:13px;border:1px solid var(--line);background:var(--paper);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
+    color:#c9c2b3;
+  }
+  .fu .g{font-size:21px;line-height:1;}
+  .fu .n{font-size:8.5px;letter-spacing:.03em;visibility:hidden;}
+  .fu.got{background:#f3ead6;border-color:#dbc48e;color:#8a5f1c;box-shadow:var(--shadow);}
+  .fu.got .n{visibility:visible;color:#8a5f1c;}
+
+  .disc{display:flex;align-items:center;gap:12px;padding:11px 2px;border-bottom:1px solid var(--paper-2);}
+  .disc:last-child{border-bottom:none;}
+  .dico{
+    width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;
+    font-size:19px;flex:0 0 auto;
+  }
+  .dico.rune{background:#f3ead6;color:#8a5f1c;font-size:21px;}
+  .dico.ruine{background:var(--paper-2);color:var(--ink-soft);}
+  .dico.sanctuaire{background:var(--sage-soft);color:var(--sage-deep);}
+  .disc .t{flex:1;min-width:0;}
+  .disc .t b{font-size:14.5px;display:block;}
+  .disc .t span{font-size:12px;color:var(--ink-soft);}
+  .disc .go{border:none;background:none;color:var(--sage);font-weight:700;font-size:13px;cursor:pointer;padding:6px;}
+
+  .outing{display:flex;align-items:center;gap:12px;padding:12px 2px;border-bottom:1px solid var(--paper-2);}
+  .outing:last-child{border-bottom:none;}
+  .oico{width:40px;height:40px;border-radius:12px;background:var(--paper-2);display:flex;align-items:center;justify-content:center;font-size:19px;flex:0 0 auto;}
+  .outing .t{flex:1;min-width:0;}
+  .outing .t b{font-size:14.5px;}
+  .outing .t span{display:block;font-size:12px;color:var(--ink-soft);}
+  .oxp{font-family:'MedievalSharp',serif;font-weight:600;color:var(--honey);font-size:16px;}
+
+  .empty{
+    text-align:center;color:var(--ink-soft);font-size:14px;padding:26px 18px;
+    border:1.5px dashed var(--line);border-radius:var(--radius);margin-top:8px;
+  }
+  .empty .big{font-size:26px;display:block;margin-bottom:6px;}
+
+  /* profil */
+  .field{margin-bottom:14px;}
+  .field label{display:block;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-soft);margin-bottom:6px;}
+  .field input{
+    width:100%;border:1.5px solid var(--line);border-radius:13px;padding:11px 13px;font-size:15px;
+    font-family:inherit;background:var(--paper);color:var(--ink);
+  }
+  .regions{display:grid;grid-template-columns:1fr 1fr;gap:9px;}
+  .region{
+    border:1.5px solid var(--line);border-radius:14px;background:var(--paper);padding:11px 13px;
+    cursor:pointer;display:flex;align-items:center;gap:9px;font-weight:600;font-size:14px;text-align:left;
+  }
+  .region .c{width:14px;height:14px;border-radius:5px;flex:0 0 auto;}
+  .region.sel{border-color:var(--ink);background:var(--white);box-shadow:var(--shadow);}
+
+  /* ---------- équipement / butin ---------- */
+  .rar{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;border-radius:99px;padding:2px 8px;color:#fff;display:inline-block;margin-right:4px;}
+  .slotrow{display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid var(--paper-2);}
+  .slotrow:last-child{border-bottom:none;}
+  .slotico{width:38px;height:38px;border-radius:12px;background:var(--paper-2);display:flex;align-items:center;justify-content:center;font-size:18px;flex:0 0 auto;}
+  .ibtn{border:none;font-weight:700;font-size:12px;border-radius:9px;padding:5px 10px;cursor:pointer;font-family:inherit;}
+  .ibtn.eq{background:var(--sage-soft);color:var(--sage-deep);}
+  .ibtn.rc{background:var(--paper-2);color:var(--ink-soft);}
+  .ibtn.un{background:none;color:var(--clay);font-size:13px;padding:6px;}
+
+  /* ---------- tab bar ---------- */
+  .tabbar{
+    position:absolute;left:0;right:0;bottom:0;z-index:600;display:flex;
+    background:linear-gradient(transparent, var(--paper) 30%);
+    padding:14px 14px calc(12px + env(safe-area-inset-bottom));gap:6px;
+  }
+  .tab{
+    flex:1;border:1px solid transparent;background:none;border-radius:14px;padding:8px 4px 7px;
+    display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;color:var(--ink-soft);
+  }
+  .tab .i{font-size:19px;line-height:1;}
+  .tab .l{font-size:11px;font-weight:700;}
+  .tab.on{background:var(--white);border-color:var(--line);color:var(--ink);box-shadow:var(--shadow);}
+
+  /* ---------- modals ---------- */
+  .veil{
+    position:absolute;inset:0;z-index:800;background:rgba(33,31,26,.35);display:none;
+    align-items:flex-end;justify-content:center;
+  }
+  .veil.open{display:flex;}
+  .modal{
+    background:var(--white);border-radius:22px 22px 0 0;width:100%;max-width:640px;
+    padding:22px 20px calc(20px + env(safe-area-inset-bottom));max-height:82dvh;overflow-y:auto;
+  }
+  .modal h3{margin:0 0 4px;font-family:'MedievalSharp',serif;font-weight:600;font-size:21px;}
+  .xpbig{font-family:'MedievalSharp',serif;font-size:44px;font-weight:600;color:var(--honey);line-height:1.05;margin:8px 0 2px;}
+  .xpbig small{font-size:18px;}
+  .gainrow{display:flex;justify-content:space-between;font-size:14px;padding:7px 0;border-bottom:1px solid var(--paper-2);}
+  .gainrow:last-of-type{border-bottom:none;}
+  .gainrow b{font-weight:700;}
+  .lvlup{
+    background:var(--sage-soft);color:var(--sage-deep);border-radius:13px;padding:10px 14px;
+    font-weight:700;font-size:14px;margin:12px 0 2px;text-align:center;
+  }
+  .discreveal{margin-top:14px;}
+  .discreveal .disc{animation:pop .45s cubic-bezier(.2,1.4,.4,1) backwards;}
+  .discreveal .disc:nth-child(2){animation-delay:.12s}
+  .discreveal .disc:nth-child(3){animation-delay:.24s}
+  .discreveal .disc:nth-child(4){animation-delay:.36s}
+  @keyframes pop{from{opacity:0;transform:scale(.9) translateY(8px);}to{opacity:1;transform:none;}}
+  @media (prefers-reduced-motion: reduce){
+    .discreveal .disc{animation:none;}
+    .sheet{transition:none;}
+  }
+
+  /* ---------- onboarding ---------- */
+  #onboard{
+    position:absolute;inset:0;z-index:900;background:var(--paper);overflow-y:auto;
+    background-image:radial-gradient(circle at 1px 1px, var(--dot) 1px, transparent 0);
+    background-size:22px 22px;padding:0 22px calc(30px + env(safe-area-inset-bottom));
+  }
+  .obwrap{max-width:480px;margin:0 auto;}
+  .obhero{padding:52px 0 6px;text-align:center;}
+  .obglyphs{
+    font-size:26px;letter-spacing:14px;color:var(--clay);opacity:.85;
+    margin-bottom:14px;padding-left:14px;
+  }
+  .obhero h1{font-family:'MedievalSharp',serif;font-weight:600;font-size:52px;margin:0;letter-spacing:-.02em;}
+  .obhero h1 .dot{color:var(--clay);}
+  .obhero p{color:var(--ink-soft);font-size:16px;margin:8px 0 0;}
+  .obbeta{
+    display:inline-block;margin-top:12px;font-size:11px;font-weight:700;letter-spacing:.1em;
+    text-transform:uppercase;background:var(--paper-2);border:1px solid var(--line);
+    border-radius:999px;padding:4px 11px;color:var(--ink-soft);
+  }
+  .obcta{
+    width:100%;margin-top:22px;border:none;border-radius:16px;background:var(--sage);color:#fff;
+    font-size:16px;font-weight:700;padding:16px;cursor:pointer;box-shadow:var(--shadow);
+  }
+  .obcta:disabled{background:var(--paper-2);color:var(--ink-soft);}
+
+  .toast{
+    position:absolute;left:50%;bottom:calc(104px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(20px);
+    background:var(--ink);color:var(--paper);font-size:14px;font-weight:600;border-radius:999px;
+    padding:10px 18px;opacity:0;transition:.25s;z-index:950;pointer-events:none;white-space:nowrap;max-width:92%;
+    text-overflow:ellipsis;overflow:hidden;
+  }
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+  .mapwarn{
+    position:absolute;top:8px;left:12px;right:12px;z-index:520;display:none;
+    background:#faf0dc;border:1px solid #dbc48e;color:#6d4a12;border-radius:14px;
+    padding:10px 38px 10px 14px;font-size:13px;line-height:1.4;box-shadow:var(--shadow);
+  }
+  .mapwarn.show{display:block;}
+  .mapwarn button{
+    position:absolute;top:6px;right:6px;border:none;background:none;color:inherit;
+    font-size:15px;cursor:pointer;padding:4px 7px;
+  }
+  #map.ancien .leaflet-tile{ filter:sepia(.5) saturate(.6) contrast(.9) brightness(1.05); }
+  .hexlabel{background:none;border:none;}
+  .discmark{
+    width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+    font-size:14px;box-shadow:0 1px 4px rgba(33,31,26,.3);border:1.5px solid #fff;
+  }
+  .discmark.rune{background:#e9d9ae;color:#6d4a12;font-size:15px;font-weight:700;}
+  .discmark.ruine{background:#d8d1c2;color:#4b463c;}
+  .discmark.sanctuaire{background:#c9d8c9;color:#2c4434;}
+  .discmark.hid{opacity:.6;filter:grayscale(.6);font-weight:700;animation:spotpulse 2.2s ease-in-out infinite;}
+  @keyframes spotpulse{0%,100%{transform:scale(1);}50%{transform:scale(1.14);}}
+  .xpfloat{font-family:'MedievalSharp',serif;font-size:16px;font-weight:700;color:var(--honey);
+    text-shadow:0 1px 0 #fff,0 2px 6px rgba(255,255,255,.8);white-space:nowrap;text-align:center;
+    animation:rise 1.25s ease-out forwards;}
+  @keyframes rise{from{opacity:1;transform:translateY(0);}to{opacity:0;transform:translateY(-36px);}}
+  .hexanim{animation:hexin .7s ease;}
+  @keyframes hexin{from{fill-opacity:0;stroke-opacity:0;}}
+  .elan.hot .fl{display:inline-block;animation:flame 1.1s ease-in-out infinite;}
+  @keyframes flame{0%,100%{transform:scale(1) rotate(0deg);}50%{transform:scale(1.28) rotate(6deg);}}
+  .lvlup{animation:glow 1.5s ease-in-out infinite;}
+  @keyframes glow{0%,100%{box-shadow:0 0 0 rgba(180,132,44,0);}50%{box-shadow:0 0 20px rgba(180,132,44,.45);}}
+  .livebar{position:absolute;left:12px;right:12px;bottom:calc(88px + env(safe-area-inset-bottom));z-index:560;
+    background:var(--white);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);
+    padding:10px 14px;display:none;align-items:center;gap:14px;}
+  .livebar.on{display:flex;}
+  .lb{display:flex;flex-direction:column;line-height:1.1;}
+  .lb b{font-family:'MedievalSharp',serif;font-size:17px;}
+  .lb span{font-size:10.5px;color:var(--ink-soft);}
+  .lb-end{margin-left:auto;border:none;border-radius:12px;background:var(--clay);color:#fff;font-weight:700;font-size:14px;padding:10px 14px;cursor:pointer;}
+  .livedot{width:16px;height:16px;border-radius:50%;border:3px solid #fff;animation:pulse 1.6s infinite;}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(63,93,73,.4);}70%{box-shadow:0 0 0 14px rgba(63,93,73,0);}100%{box-shadow:0 0 0 0 rgba(63,93,73,0);}}
+  @media (prefers-reduced-motion: reduce){
+    .xpfloat,.hexanim,.elan.hot .fl,.lvlup,.livedot,.discmark.hid{animation:none;}
+  }
+</style>
+</head>
+<body>
+<div id="shell">
+
+  <!-- ============ ONBOARDING ============ -->
+  <div id="onboard">
+    <div class="obwrap">
+      <div class="obhero">
+        <div class="obglyphs">ᚱ ᚢ ᚾ ᛖ</div>
+        <h1>rune<span class="dot">.</span></h1>
+        <p>Tes kilomètres deviennent une aventure.</p>
+        <span class="obbeta">bêta · prototype solo</span>
+      </div>
+      <h2 class="sec">Ton nom d'explorateur</h2>
+      <div class="field" style="margin-bottom:4px;">
+        <input id="ob-name" type="text" maxlength="20" placeholder="ex. Vagabond du Nord" autocomplete="off">
+      </div>
+      <h2 class="sec">Ta région</h2>
+      <div class="regions" id="ob-regions"></div>
+      <button class="obcta" id="ob-go" disabled>Commencer l'exploration</button>
+      <p style="font-size:12.5px;color:var(--ink-soft);text-align:center;margin-top:14px;">
+        Trace tes sorties sur la carte ou importe un fichier GPX pour capturer des hexagones,
+        découvrir des runes et faire progresser ton explorateur. Tout reste sur cet appareil.
+      </p>
+    </div>
+  </div>
+
+  <!-- ============ TOP BAR ============ -->
+  <div class="topbar">
+    <div class="brand">rune<span class="dot">.</span></div>
+    <div class="spacer"></div>
+    <div class="elan" id="elan" title="Élan : ta régularité booste tes gains">
+      <span class="fl">↯</span><span id="elan-v">×1.0</span>
+    </div>
+    <div class="lvlchip" id="lvlchip">
+      <div class="lvlnum" id="lvl-n">1</div>
+      <div class="lvlinfo">
+        <span class="lvltitle" id="lvl-t">Vagabond</span>
+        <span class="xpbar"><i id="lvl-bar" style="width:0%"></i></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ VIEWS ============ -->
+  <div class="views">
+
+    <div class="view on" id="v-carte">
+      <div id="map"></div>
+      <div class="mapwarn" id="mapwarn">
+        <b>Fond de carte indisponible.</b> Si tu es dans l'aperçu de Claude, télécharge le fichier
+        et ouvre-le dans ton navigateur — sinon, vérifie ta connexion. Les hexagones restent jouables ici.
+        <button id="mapwarn-x">✕</button>
+      </div>
+      <button class="locbtn" id="btn-loc" title="Recentrer">⌖</button>
+      <div class="fabcol" id="fabcol">
+        <button class="fab ghost" id="btn-gpx">⤒&nbsp; GPX</button>
+        <button class="fab ghost" id="btn-trace">✎&nbsp; Tracer</button>
+        <button class="fab primary" id="btn-live">▶&nbsp; Aventure</button>
+      </div>
+      <button class="locbtn" id="btn-scout" title="Repérer les lieux alentour" style="bottom:calc(148px + env(safe-area-inset-bottom));">👁</button>
+      <div class="livebar" id="livebar">
+        <div class="lb"><b id="lb-time">0:00</b><span>durée</span></div>
+        <div class="lb"><b id="lb-km">0,0</b><span>km</span></div>
+        <div class="lb"><b id="lb-hex">0</b><span>hexes</span></div>
+        <div class="lb"><b id="lb-disc">0</b><span>trouvés</span></div>
+        <button class="lb-end" id="lb-end">Terminer</button>
+      </div>
+      <input type="file" id="gpx-input" accept=".gpx,application/gpx+xml" style="display:none">
+    </div>
+
+    <div class="view" id="v-carnet">
+      <h2 class="sec">Ton exploration</h2>
+      <div class="statgrid">
+        <div class="stat"><b id="st-km">0</b><span>km parcourus</span></div>
+        <div class="stat"><b id="st-hex">0</b><span>hexagones capturés</span></div>
+        <div class="stat"><b id="st-out">0</b><span>sorties</span></div>
+        <div class="stat"><b id="st-dp">0</b><span>m de dénivelé +</span></div>
+      </div>
+      <h2 class="sec">Collection · le Futhark <span id="futh-count" style="text-transform:none;letter-spacing:0;"></span></h2>
+      <div class="card"><div class="futh" id="futh"></div></div>
+      <h2 class="sec">Découvertes</h2>
+      <div class="card" id="disc-list"></div>
+    </div>
+
+    <div class="view" id="v-sorties">
+      <h2 class="sec">Journal des sorties</h2>
+      <div class="card" id="out-list"></div>
+      <button class="btn quiet" style="width:100%;" id="btn-gpx2">⤒&nbsp; Importer un fichier GPX</button>
+      <p style="font-size:12.5px;color:var(--ink-soft);margin-top:10px;">
+        En version finale, tes sorties arriveront automatiquement depuis Strava. Ici, en bêta,
+        tu les simules en les traçant sur la carte ou en important tes vrais fichiers GPX.
+      </p>
+    </div>
+
+    <div class="view" id="v-profil">
+      <h2 class="sec">Explorateur</h2>
+      <div class="card">
+        <p id="pf-meta" style="font-size:13px;color:var(--ink-soft);margin:0 0 12px;"></p>
+        <div class="field">
+          <label for="pf-name">Nom</label>
+          <input id="pf-name" type="text" maxlength="20">
+        </div>
+        <div class="field" style="margin-bottom:4px;">
+          <label>Région</label>
+          <div class="regions" id="pf-regions"></div>
+        </div>
+      </div>
+      <h2 class="sec">Équipement</h2>
+      <div class="card" id="equip-card"></div>
+      <h2 class="sec">Sac <span id="inv-count" style="text-transform:none;letter-spacing:0;"></span></h2>
+      <div class="card" id="inv-list"></div>
+      <h2 class="sec">Records</h2>
+      <div class="card" id="records"></div>
+      <h2 class="sec">Élan</h2>
+      <div class="card" style="font-size:13.5px;color:var(--ink-soft);">
+        <b style="color:var(--ink);">Ta régularité booste tes gains, sans jamais rien te retirer.</b><br>
+        Chaque sortie des 7 derniers jours ajoute ×0,1 à ton multiplicateur (jusqu'à ×1,5).
+        Si tu t'arrêtes, l'Élan retombe simplement à ×1,0 — ton niveau, ton XP et tes découvertes
+        restent acquis pour toujours.
+      </div>
+      <h2 class="sec">Style de carte</h2>
+      <div class="card">
+        <div class="sports" style="margin-bottom:6px;">
+          <button class="sport" data-ms="moderne">Moderne</button>
+          <button class="sport" data-ms="ancien">Ancienne</button>
+        </div>
+        <p style="font-size:12.5px;color:var(--ink-soft);margin:0;">Le style « Ancienne » applique une patine parchemin au fond de carte, façon carte d'exploration.</p>
+      </div>
+      <h2 class="sec">Sauvegarde</h2>
+      <div class="card">
+        <div class="sheetrow">
+          <button class="btn quiet" id="btn-export">Exporter</button>
+          <button class="btn quiet" id="btn-import">Importer</button>
+        </div>
+        <input type="file" id="save-input" accept=".json" style="display:none">
+        <button class="btn danger" style="width:100%;margin-top:9px;" id="btn-reset">Tout effacer et recommencer</button>
+      </div>
+      <p style="font-size:12px;color:var(--ink-soft);text-align:center;margin-top:14px;">
+        rune. — bêta v0.4 · prototype solo · données stockées sur cet appareil
+      </p>
+    </div>
+  </div>
+
+  <!-- ============ TRACE / GPX SHEET ============ -->
+  <div class="sheet" id="sheet">
+    <h3 id="sh-title">Tracer une sortie</h3>
+    <p class="hint" id="sh-hint">Tape sur la carte pour placer les points de ton parcours.</p>
+    <div class="tracestats">
+      <div class="ts"><b id="sh-km">0,0 km</b><span>distance</span></div>
+      <div class="ts" id="sh-dp-wrap" style="display:none;"><b id="sh-dp">0 m</b><span>dénivelé +</span></div>
+      <div class="ts" id="sh-pts-wrap"><b id="sh-pts">0</b><span>points</span></div>
+    </div>
+    <div class="sports" id="sh-sports">
+      <button class="sport sel" data-s="course">🏃 Course</button>
+      <button class="sport" data-s="marche">🚶 Marche</button>
+      <button class="sport" data-s="rando">🥾 Rando</button>
+    </div>
+    <div class="sheetrow">
+      <button class="btn quiet small" id="sh-cancel">✕</button>
+      <button class="btn quiet small" id="sh-undo">⌫ Point</button>
+      <button class="btn go" id="sh-go" disabled>Terminer la sortie</button>
+    </div>
+  </div>
+
+  <!-- ============ RESULT MODAL ============ -->
+  <div class="veil" id="veil">
+    <div class="modal">
+      <h3 id="rm-title">Sortie terminée !</h3>
+      <div class="xpbig">+<span id="rm-xp">0</span> <small>XP</small></div>
+      <div id="rm-lvlup"></div>
+      <div id="rm-gains" style="margin-top:8px;"></div>
+      <div class="discreveal" id="rm-disc"></div>
+      <button class="btn go" style="width:100%;margin-top:18px;" id="rm-close">Continuer</button>
+    </div>
+  </div>
+
+  <!-- ============ TAB BAR ============ -->
+  <div class="tabbar">
+    <button class="tab on" data-v="carte"><span class="i">🗺</span><span class="l">Carte</span></button>
+    <button class="tab" data-v="carnet"><span class="i">📜</span><span class="l">Carnet</span></button>
+    <button class="tab" data-v="sorties"><span class="i">👟</span><span class="l">Sorties</span></button>
+    <button class="tab" data-v="profil"><span class="i">☉</span><span class="l">Profil</span></button>
+  </div>
+
+  <div class="toast" id="toast"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+/* ================================================================
+   rune. — bêta v0.4 · prototype solo
+   ================================================================ */
+
+/* ---------- données de jeu ---------- */
+const REGIONS = {
+  bourgogne:{name:'Bourgogne', c:'#8d3b46'},
+  bretagne:{name:'Bretagne', c:'#2b3040'},
+  jura:{name:'Jura', c:'#3f5d49'},
+  flandres:{name:'Flandres', c:'#b4842c'},
+  provence:{name:'Provence', c:'#7a6fae'},
+  normandie:{name:'Normandie', c:'#4a6d8c'},
+};
+const FUTHARK = [
+  ['ᚠ','Fehu'],['ᚢ','Uruz'],['ᚦ','Thurisaz'],['ᚨ','Ansuz'],['ᚱ','Raidho'],['ᚲ','Kenaz'],
+  ['ᚷ','Gebo'],['ᚹ','Wunjo'],['ᚺ','Hagalaz'],['ᚾ','Nauthiz'],['ᛁ','Isa'],['ᛃ','Jera'],
+  ['ᛇ','Eihwaz'],['ᛈ','Perthro'],['ᛉ','Algiz'],['ᛊ','Sowilo'],['ᛏ','Tiwaz'],['ᛒ','Berkano'],
+  ['ᛖ','Ehwaz'],['ᛗ','Mannaz'],['ᛚ','Laguz'],['ᛜ','Ingwaz'],['ᛞ','Dagaz'],['ᛟ','Othala'],
+];
+const RUIN_A = ['Ruine','Vestiges','Cairn','Dolmen','Tour effondrée','Vieux lavoir','Chapelle oubliée','Croix de pierre','Menhir','Puits ancien'];
+const RUIN_B = ['du Loup','des Brumes','du Gué','de la Lande','du Vieux Chêne','des Sources','du Berger','de l\u2019Aube','des Corbeaux','du Silence'];
+const SANCT = ['Sanctuaire de l\u2019Aurore','Sanctuaire du Grand Cerf','Sanctuaire des Quatre Vents','Sanctuaire de la Pierre Levée','Sanctuaire du Soleil Couchant','Sanctuaire des Anciens','Sanctuaire de la Source Claire','Sanctuaire du Roc Noir'];
+const TITLES = [[1,'Vagabond'],[2,'Marcheur'],[3,'Éclaireur'],[4,'Pisteur'],[5,'Explorateur'],[6,'Arpenteur'],[7,'Cartographe'],[8,'Chasseur de runes'],[10,'Maître des runes'],[13,'Gardien des sanctuaires'],[16,'Légende vivante']];
+const XP_KM = {course:15, rando:12, marche:8};
+const XP_DISC = {rune:25, ruine:60, sanctuaire:150};
+const SPORT_ICON = {course:'🏃', marche:'🚶', rando:'🥾'};
+const SPORT_NAME = {course:'Course', marche:'Marche', rando:'Rando'};
+const RARS = [
+  {k:'commun', c:'#8f8878', xp:10},
+  {k:'rare', c:'#4a6d8c', xp:30},
+  {k:'épique', c:'#7a6fae', xp:80},
+  {k:'légendaire', c:'#b4842c', xp:200},
+];
+const SLOTS = {
+  chaussures:{label:'Chaussures', icon:'🥾'},
+  tenue:{label:'Tenue', icon:'🧥'},
+  talisman:{label:'Talisman', icon:'ᛟ'},
+  boussole:{label:'Boussole', icon:'🧭'},
+  besace:{label:'Besace', icon:'🎒'},
+};
+const NAME_CH = ['du Pèlerin','du Messager','de l\u2019Éclaireur','du Vent','des Crêtes','du Gué','des Longues Lieues','du Berserker'];
+const NAME_TE = ['de Bruyère','du Voyageur','des Brumes','du Jarl','de Lin','des Quatre Vents','du Bivouac','de la Draille'];
+const NAME_BO = ['des Étoiles','du Nord Vrai','de l\u2019Ancien Monde','des Sentes','du Guetteur','des Marées'];
+const NAME_BE = ['du Colporteur','de Cuir Patiné','du Glaneur','des Grandes Foires','du Contrebandier','de l\u2019Herboriste'];
+const GEAR_PCT = {chaussures:[5,10,15,25], tenue:[3,6,10,15], talisman:[10,20,35,50], boussole:[10,20,35,50], besace:[25,50,75,100]};
+function rollRarity(){ const v=Math.random(); return v<0.02?3:v<0.12?2:v<0.40?1:0; }
+function makeItem(){
+  const slots=Object.keys(SLOTS), slot=slots[Math.floor(Math.random()*slots.length)];
+  const rar=rollRarity(), pct=GEAR_PCT[slot][rar];
+  let name, bonus;
+  if(slot==='chaussures'){
+    const sp=['course','marche','rando'][Math.floor(Math.random()*3)];
+    name='Chaussures '+NAME_CH[Math.floor(Math.random()*NAME_CH.length)];
+    bonus={kind:'sport', sport:sp, pct};
+  } else if(slot==='tenue'){
+    name='Tenue '+NAME_TE[Math.floor(Math.random()*NAME_TE.length)];
+    bonus={kind:'all', pct};
+  } else if(slot==='boussole'){
+    name='Boussole '+NAME_BO[Math.floor(Math.random()*NAME_BO.length)];
+    bonus={kind:'disc', pct};
+  } else if(slot==='besace'){
+    name='Besace '+NAME_BE[Math.floor(Math.random()*NAME_BE.length)];
+    bonus={kind:'hex', pct};
+  } else {
+    const f=FUTHARK[Math.floor(Math.random()*FUTHARK.length)];
+    name='Talisman '+f[0]+' '+f[1];
+    bonus={kind:'loot', pct};
+  }
+  return {id:Date.now()+'-'+Math.floor(Math.random()*1e6), slot, rar, name, bonus};
+}
+function bonusText(it){
+  const b=it.bonus;
+  return b.kind==='sport' ? '+'+b.pct+'% XP '+SPORT_NAME[b.sport].toLowerCase()
+       : b.kind==='all' ? '+'+b.pct+'% XP toutes sorties'
+       : b.kind==='disc' ? '+'+b.pct+'% XP des découvertes'
+       : b.kind==='hex' ? '+'+b.pct+'% XP des hexagones'
+       : '+'+b.pct+'% chance de butin';
+}
+function equipped(slot){ return state && state.inv ? (state.inv.find(i=>i.id===state.equip[slot])||null) : null; }
+function gearSportMult(sp){
+  let p=0;
+  const ch=equipped('chaussures'); if(ch && ch.bonus.sport===sp) p+=ch.bonus.pct;
+  const te=equipped('tenue'); if(te) p+=te.bonus.pct;
+  return 1+p/100;
+}
+function gearLootPct(){ const t=equipped('talisman'); return t?t.bonus.pct:0; }
+function gearDiscMult(){ const b=equipped('boussole'); return 1+(b?b.bonus.pct:0)/100; }
+function gearHexMult(){ const b=equipped('besace'); return 1+(b?b.bonus.pct:0)/100; }
+function itemHTML(it, btns){
+  return '<div class="disc"><div class="dico" style="background:'+RARS[it.rar].c+'22;color:'+RARS[it.rar].c+';">'+SLOTS[it.slot].icon+'</div><div class="t"><b>'+esc(it.name)+'</b><span><span class="rar" style="background:'+RARS[it.rar].c+'">'+RARS[it.rar].k+'</span>'+bonusText(it)+'</span></div>'+(btns||'')+'</div>';
+}
+
+/* ---------- état & persistance ---------- */
+const KEY = 'rune-state-v1';
+let mem = null;
+function load(){
+  try{ const raw = localStorage.getItem(KEY); if(raw) return JSON.parse(raw); }catch(e){}
+  return mem;
+}
+function save(){
+  mem = state;
+  try{ localStorage.setItem(KEY, JSON.stringify(state)); }catch(e){}
+}
+let state = load() || null;
+function migrate(){ if(!state) return; state.poiIds = state.poiIds || {}; state.mapstyle = state.mapstyle || 'moderne'; state.inv = state.inv || []; state.equip = state.equip || {}; for(const s of ['chaussures','tenue','talisman','boussole','besace']) if(!(s in state.equip)) state.equip[s]=null; state.spotted = state.spotted || {}; }
+migrate();
+
+/* ---------- géométrie : mercator + hexagones ---------- */
+const RAD = Math.PI/180, RE = 6378137, SQ3 = Math.sqrt(3);
+const HEX_S = 380; // rayon en mètres mercator ≈ hexagone de ~0,45 km réel en France
+function toM(lat,lng){ return {x: RE*lng*RAD, y: RE*Math.log(Math.tan(Math.PI/4 + lat*RAD/2))}; }
+function toLL(x,y){ return {lat:(2*Math.atan(Math.exp(y/RE)) - Math.PI/2)/RAD, lng:(x/RE)/RAD}; }
+function hexAt(lat,lng){
+  const p = toM(lat,lng);
+  const q = (SQ3/3*p.x - p.y/3)/HEX_S, r = (2/3*p.y)/HEX_S;
+  return hexRound(q,r);
+}
+function hexRound(q,r){
+  const s = -q-r;
+  let rq=Math.round(q), rr=Math.round(r), rs=Math.round(s);
+  const dq=Math.abs(rq-q), dr=Math.abs(rr-r), ds=Math.abs(rs-s);
+  if(dq>dr && dq>ds) rq=-rr-rs; else if(dr>ds) rr=-rq-rs;
+  return {q:rq, r:rr};
+}
+function hexCenter(q,r){ return toLL(HEX_S*(SQ3*q + SQ3/2*r), HEX_S*1.5*r); }
+function hexCorners(q,r){
+  const cx = HEX_S*(SQ3*q + SQ3/2*r), cy = HEX_S*1.5*r, out=[];
+  for(let i=0;i<6;i++){
+    const a = (60*i - 30)*RAD;
+    const ll = toLL(cx + HEX_S*Math.cos(a), cy + HEX_S*Math.sin(a));
+    out.push([ll.lat, ll.lng]);
+  }
+  return out;
+}
+function hexNeighbors(q,r){ return [[1,0],[1,-1],[0,-1],[-1,0],[-1,1],[0,1]].map(d=>(q+d[0])+'_'+(r+d[1])); }
+function haver(a,b){
+  const dLat=(b[0]-a[0])*RAD, dLng=(b[1]-a[1])*RAD;
+  const h = Math.sin(dLat/2)**2 + Math.cos(a[0]*RAD)*Math.cos(b[0]*RAD)*Math.sin(dLng/2)**2;
+  return 2*6371000*Math.asin(Math.sqrt(h));
+}
+
+/* ---------- découvertes procédurales (déterministes) ---------- */
+function hrand(q,r,salt){
+  let h = (Math.imul(q,374761393) + Math.imul(r,668265263) + Math.imul(salt,974634211))|0;
+  h = Math.imul(h ^ (h>>>13), 1274126177); h ^= h>>>16;
+  return (h>>>0)/4294967296;
+}
+function discoveryAt(q,r,boost){
+  const v = hrand(q,r,1);
+  const T = boost ? [0.011,0.05,0.16] : [0.004,0.018,0.07];
+  if(v < T[0]){ return {type:'sanctuaire', name:SANCT[Math.floor(hrand(q,r,2)*SANCT.length)], glyph:'⛰'}; }
+  if(v < T[1]){
+    const n = RUIN_A[Math.floor(hrand(q,r,3)*RUIN_A.length)]+' '+RUIN_B[Math.floor(hrand(q,r,4)*RUIN_B.length)];
+    return {type:'ruine', name:n, glyph:'🗿'};
+  }
+  if(v < T[2]){
+    const f = FUTHARK[Math.floor(hrand(q,r,5)*FUTHARK.length)];
+    return {type:'rune', name:'Rune '+f[1], glyph:f[0]};
+  }
+  return null;
+}
+
+/* ---------- POI réels (OpenStreetMap / Overpass) ---------- */
+const HIST_FR = {castle:'Château',ruins:'Ruines',archaeological_site:'Site archéologique',fort:'Fort',citywalls:'Remparts',tower:'Tour ancienne',monument:'Monument',memorial:'Mémorial',city_gate:'Porte de ville',manor:'Manoir',wayside_cross:'Croix de chemin',wayside_shrine:'Oratoire',chapel:'Chapelle',church:'Église ancienne',boundary_stone:'Borne ancienne',milestone:'Borne milliaire',wall:'Vieux mur',mine:'Ancienne mine',aqueduct:'Aqueduc',battlefield:'Champ de bataille',bunker:'Blockhaus'};
+function hashStr(s){ let x=2166136261; for(let i=0;i<s.length;i++){ x^=s.charCodeAt(i); x=Math.imul(x,16777619); } return x>>>0; }
+function classifyPOI(p){
+  const t = p.tags || {};
+  if(t.natural==='peak' || t.natural==='saddle' || t.tourism==='viewpoint'){
+    let n = t.name || (t.natural==='peak' ? 'Sommet' : t.natural==='saddle' ? 'Col' : 'Point de vue');
+    const e = parseFloat(t.ele); if(!isNaN(e)) n += ' · ' + Math.round(e) + ' m';
+    return {type:'sanctuaire', name:n, glyph:'⛰'};
+  }
+  if(t.natural==='cave_entrance') return {type:'sanctuaire', name:t.name||'Grotte', glyph:'🕳'};
+  if(t.natural==='waterfall' || t.waterway==='waterfall') return {type:'sanctuaire', name:t.name||'Cascade', glyph:'🌊'};
+  const big = ['castle','ruins','archaeological_site','fort','citywalls','tower','monument','memorial','city_gate','manor','battlefield','bunker'];
+  if(t.historic && big.includes(t.historic)) return {type:'ruine', name:t.name || HIST_FR[t.historic] || 'Vestige', glyph:'🗿'};
+  if(t.ruins==='yes') return {type:'ruine', name:t.name||'Ruines', glyph:'🗿'};
+  if(t.man_made==='lighthouse') return {type:'ruine', name:t.name||'Phare', glyph:'🗼'};
+  if(t.man_made==='tower') return {type:'ruine', name:t.name||'Tour', glyph:'🗼'};
+  if(t.man_made==='obelisk') return {type:'ruine', name:t.name||'Obélisque', glyph:'🗿'};
+  const f = FUTHARK[hashStr(String(p.id)) % FUTHARK.length];
+  const base = t.name || HIST_FR[t.historic] || (t.natural==='spring' ? 'Source' : t.tourism==='attraction' ? 'Curiosité' : 'Lieu ancien');
+  return {type:'rune', name:'Rune '+f[1]+' · '+base, glyph:f[0]};
+}
+function pathBBox(path){
+  let s=90, w=180, n=-90, e=-180;
+  for(const p of path){ s=Math.min(s,p[0]); n=Math.max(n,p[0]); w=Math.min(w,p[1]); e=Math.max(e,p[1]); }
+  const dLat = 300/111000, dLng = 300/(111000*Math.cos(((s+n)/2)*RAD));
+  return [s-dLat, w-dLng, n+dLat, e+dLng];
+}
+async function fetchPOIs(bbStr){
+  const q = '[out:json][timeout:12];(nwr["natural"~"^(peak|saddle|spring|cave_entrance|waterfall)$"]('+bbStr+');nwr["waterway"="waterfall"]('+bbStr+');nwr["tourism"~"^(viewpoint|attraction)$"]('+bbStr+');nwr["historic"]('+bbStr+');nwr["ruins"="yes"]('+bbStr+');nwr["man_made"~"^(tower|lighthouse|obelisk)$"]('+bbStr+'););out center 200;';
+  const ctl = new AbortController();
+  const tm = setTimeout(()=>ctl.abort(), 9000);
+  try{
+    const r = await fetch('https://overpass-api.de/api/interpreter', {
+      method:'POST', body:'data='+encodeURIComponent(q), signal:ctl.signal,
+      headers:{'Content-Type':'application/x-www-form-urlencoded'}
+    });
+    const j = await r.json();
+    return (j.elements||[])
+      .map(el=>({id:el.type+'/'+el.id, lat:(el.lat!=null?el.lat:(el.center&&el.center.lat)), lng:(el.lon!=null?el.lon:(el.center&&el.center.lon)), tags:el.tags}))
+      .filter(p=>p.lat!=null && p.tags);
+  } finally { clearTimeout(tm); }
+}
+
+/* ---------- niveaux ---------- */
+function cumXP(l){ return Math.round(100*Math.pow(l-1,1.5)); }
+function levelOf(xp){ let l=1; while(xp >= cumXP(l+1)) l++; return l; }
+function titleOf(l){ let t=TITLES[0][1]; for(const [min,n] of TITLES){ if(l>=min) t=n; } return t; }
+function elanMult(){
+  if(!state) return 1;
+  const wk = Date.now() - 7*86400000;
+  const n = state.outings.filter(o=>o.date>wk).length;
+  return 1 + 0.1*Math.min(5,n);
+}
+
+/* ---------- helpers UI ---------- */
+const $ = id => document.getElementById(id);
+function fmtKm(m){ return (m/1000).toLocaleString('fr-FR',{minimumFractionDigits:1,maximumFractionDigits:1})+' km'; }
+function fmtDate(t){ return new Date(t).toLocaleDateString('fr-FR',{day:'numeric',month:'short'}); }
+function toast(msg){
+  const t=$('toast'); t.textContent=msg; t.classList.add('show');
+  clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('show'),2600);
+}
+function esc(s){ return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+/* ---------- carte ---------- */
+let map, hexLayer, discLayer, traceLayer, gridLayer, spotLayer, traceLine, drawn = {};
+let tilesOK=false, tileFails=0, fallbackGrid=false;
+function initMap(){
+  map = L.map('map',{zoomControl:false, attributionControl:true}).setView([48.197,3.283],13);
+  const tl = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{
+    maxZoom:19, attribution:'© OpenStreetMap'
+  }).addTo(map);
+  tl.on('tileload', ()=>{
+    if(tilesOK) return;
+    tilesOK=true; fallbackGrid=false;
+    $('mapwarn').classList.remove('show');
+    if(gridLayer) gridLayer.clearLayers();
+  });
+  tl.on('tileerror', ()=>{
+    tileFails++;
+    if(!tilesOK && tileFails>=3 && !fallbackGrid){
+      fallbackGrid=true;
+      $('mapwarn').classList.add('show');
+      drawFallbackGrid();
+    }
+  });
+  gridLayer = L.layerGroup().addTo(map);
+  hexLayer = L.layerGroup().addTo(map);
+  spotLayer = L.layerGroup().addTo(map);
+  discLayer = L.layerGroup().addTo(map);
+  traceLayer = L.layerGroup().addTo(map);
+  map.on('click', e=>{ if(tracing) addTracePoint(e.latlng); });
+  map.on('moveend', ()=>{ if(fallbackGrid) drawFallbackGrid(); });
+  $('mapwarn-x').onclick=()=>$('mapwarn').classList.remove('show');
+}
+function axialF(lat,lng){
+  const p = toM(lat,lng);
+  return {q:(SQ3/3*p.x - p.y/3)/HEX_S, r:(2/3*p.y)/HEX_S};
+}
+function drawFallbackGrid(){
+  gridLayer.clearLayers();
+  if(map.getZoom() < 12) return; // trop dézoomé : trop d'hexagones à tracer
+  const b = map.getBounds();
+  const cs = [
+    axialF(b.getSouth(), b.getWest()), axialF(b.getSouth(), b.getEast()),
+    axialF(b.getNorth(), b.getWest()), axialF(b.getNorth(), b.getEast())
+  ];
+  const qmin=Math.floor(Math.min(...cs.map(c=>c.q)))-1, qmax=Math.ceil(Math.max(...cs.map(c=>c.q)))+1;
+  const rmin=Math.floor(Math.min(...cs.map(c=>c.r)))-1, rmax=Math.ceil(Math.max(...cs.map(c=>c.r)))+1;
+  let n=0;
+  for(let q=qmin;q<=qmax && n<1400;q++){
+    for(let r=rmin;r<=rmax && n<1400;r++){
+      const c = hexCenter(q,r);
+      if(!b.pad(0.05).contains([c.lat,c.lng])) continue;
+      L.polygon(hexCorners(q,r),{color:'#d8d1c2',weight:.8,opacity:.8,fill:false,interactive:false}).addTo(gridLayer);
+      n++;
+    }
+  }
+}
+function regionColor(){ return REGIONS[state.region].c; }
+function drawHex(id){
+  if(drawn[id]) return;
+  const [q,r] = id.split('_').map(Number);
+  const poly = L.polygon(hexCorners(q,r),{
+    color:regionColor(), weight:1, opacity:.55, fillColor:regionColor(), fillOpacity:.22, interactive:false, className:'hexanim'
+  }).addTo(hexLayer);
+  drawn[id] = poly;
+}
+function drawDisc(d){
+  const icon = L.divIcon({className:'hexlabel', iconSize:[26,26], iconAnchor:[13,13],
+    html:'<div class="discmark '+d.type+'">'+d.glyph+'</div>'});
+  L.marker([d.lat,d.lng],{icon, interactive:true}).addTo(discLayer)
+    .bindPopup('<b>'+esc(d.name)+'</b><br><span style="font-size:12px;color:#777">'+(d.real?'Lieu réel · ':'')+'Découvert le '+fmtDate(d.date)+'</span>');
+}
+function redrawAll(){
+  hexLayer.clearLayers(); discLayer.clearLayers(); drawn={};
+  drawSpots();
+  for(const id in state.hexes) drawHex(id);
+  for(const d of state.disc) drawDisc(d);
+}
+
+/* ---------- repérage : lieux mystères ---------- */
+function drawSpots(){
+  spotLayer.clearLayers();
+  for(const id in state.spotted){
+    const s = state.spotted[id];
+    const icon = L.divIcon({className:'hexlabel', iconSize:[26,26], iconAnchor:[13,13], html:'<div class="discmark hid">?</div>'});
+    L.marker([s.lat,s.lng],{icon}).addTo(spotLayer)
+      .bindPopup('<b>Lieu repéré</b><br><span style="font-size:12px;color:#777">Passe à proximité pendant une sortie pour le découvrir.</span>');
+  }
+}
+async function scoutAround(){
+  if(map.getZoom() < 12){ toast('Zoome un peu pour repérer'); return; }
+  toast('Repérage des environs\u2026');
+  const b = map.getBounds();
+  try{
+    const pois = await fetchPOIs([b.getSouth(),b.getWest(),b.getNorth(),b.getEast()].join(','));
+    let n = 0;
+    for(const p of pois){
+      if(state.poiIds[p.id] || state.spotted[p.id]) continue;
+      if(Object.keys(state.spotted).length >= 400) break;
+      state.spotted[p.id] = {lat:p.lat, lng:p.lng};
+      n++;
+    }
+    save(); drawSpots();
+    toast(n ? n+' lieux repérés \u2014 va les découvrir !' : (pois.length ? 'Rien de nouveau à repérer ici' : 'Aucun lieu référencé ici'));
+  }catch(e){ toast('Repérage impossible hors connexion'); }
+}
+function floatXP(ll, text){
+  const ic = L.divIcon({className:'hexlabel', iconSize:[70,20], iconAnchor:[35,10], html:'<div class="xpfloat">'+text+' XP</div>'});
+  const mk = L.marker(ll,{icon:ic, interactive:false}).addTo(map);
+  setTimeout(()=>{ try{ map.removeLayer(mk); }catch(e){} }, 1300);
+}
+
+/* ---------- mode aventure (GPS en direct) ---------- */
+let live=null, liveMark=null, liveLine=null, liveTimer=null;
+function startLive(){
+  if(!navigator.geolocation){ toast('Géolocalisation indisponible sur cet appareil'); return; }
+  toast('Recherche de ta position\u2026');
+  navigator.geolocation.getCurrentPosition(
+    p=>beginLive([p.coords.latitude, p.coords.longitude]),
+    ()=>toast('Autorise la position pour partir à l\u2019aventure'),
+    {enableHighAccuracy:true, timeout:15000});
+}
+function beginLive(ll){
+  live = {path:[ll], t0:Date.now(), hexNew:0, disc:[], discXP:0, cache:{}, lastFetch:null, watch:null};
+  liveLine = L.polyline([ll],{color:regionColor(), weight:4, opacity:.85}).addTo(traceLayer);
+  liveMark = L.marker(ll,{icon:L.divIcon({className:'hexlabel', iconSize:[16,16], iconAnchor:[8,8], html:'<div class="livedot" style="background:'+regionColor()+'"></div>'})}).addTo(traceLayer);
+  map.setView(ll, 16);
+  $('fabcol').style.display='none';
+  $('livebar').classList.add('on');
+  liveTimer = setInterval(updateLiveBar, 1000);
+  liveCapture(ll, ll);
+  liveFetch(ll);
+  live.watch = navigator.geolocation.watchPosition(onLivePos, ()=>{}, {enableHighAccuracy:true, maximumAge:3000});
+  toast('Aventure lancée \u2014 bonne route !');
+}
+function onLivePos(p){
+  if(!live) return;
+  if(p.coords.accuracy > 60) return;
+  const ll = [p.coords.latitude, p.coords.longitude];
+  const last = live.path[live.path.length-1];
+  if(haver(last, ll) < 12) return;
+  live.path.push(ll);
+  liveLine.addLatLng(ll); liveMark.setLatLng(ll);
+  if(!map.getBounds().pad(-0.25).contains(ll)) map.panTo(ll);
+  liveCapture(last, ll);
+  if(!live.lastFetch || haver(live.lastFetch, ll) > 600) liveFetch(ll);
+  updateLiveBar();
+}
+function liveReveal(rec, pid){
+  if(pid){ state.poiIds[pid]=1; delete state.spotted[pid]; }
+  state.disc.push(rec); live.disc.push(rec); live.discXP += XP_DISC[rec.type];
+  drawDisc(rec); if(pid) drawSpots();
+  floatXP([rec.lat, rec.lng], '+'+XP_DISC[rec.type]);
+  if(navigator.vibrate) navigator.vibrate([60,40,60]);
+  toast(rec.glyph+' '+rec.name+' découvert !');
+}
+function liveCapture(a,b){
+  const ids = samplePath([a,b]);
+  for(const id of ids){
+    for(const pid in live.cache){
+      if(state.poiIds[pid]) continue;
+      const p = live.cache[pid];
+      const hx = hexAt(p.lat,p.lng), hid = hx.q+'_'+hx.r;
+      if(hid===id || hexNeighbors(hx.q,hx.r).includes(id)){
+        const c = classifyPOI(p);
+        liveReveal({type:c.type, name:c.name, glyph:c.glyph, hex:hid, lat:p.lat, lng:p.lng, date:Date.now(), real:true}, pid);
+      }
+    }
+    if(state.hexes[id]) continue;
+    state.hexes[id] = Date.now();
+    live.hexNew++;
+    drawHex(id);
+    const [q,r] = id.split('_').map(Number);
+    const dc = discoveryAt(q, r, Object.keys(live.cache).length===0);
+    if(dc){
+      const c = hexCenter(q,r);
+      liveReveal({...dc, hex:id, lat:c.lat, lng:c.lng, date:Date.now()}, null);
+    }
+  }
+  save();
+}
+async function liveFetch(ll){
+  live.lastFetch = ll;
+  const d=800, dLat=d/111000, dLng=d/(111000*Math.cos(ll[0]*RAD));
+  try{
+    const pois = await fetchPOIs([ll[0]-dLat, ll[1]-dLng, ll[0]+dLat, ll[1]+dLng].join(','));
+    if(!live) return;
+    for(const p of pois) if(!state.poiIds[p.id]) live.cache[p.id]=p;
+  }catch(e){}
+}
+function liveDist(){ let d=0; for(let i=1;i<live.path.length;i++) d+=haver(live.path[i-1],live.path[i]); return d; }
+function updateLiveBar(){
+  if(!live) return;
+  const s = Math.floor((Date.now()-live.t0)/1000);
+  $('lb-time').textContent = s>=3600 ? Math.floor(s/3600)+'h'+String(Math.floor(s%3600/60)).padStart(2,'0') : Math.floor(s/60)+':'+String(s%60).padStart(2,'0');
+  $('lb-km').textContent = (liveDist()/1000).toLocaleString('fr-FR',{minimumFractionDigits:1, maximumFractionDigits:1});
+  $('lb-hex').textContent = live.hexNew;
+  $('lb-disc').textContent = live.disc.length;
+}
+function endLive(){
+  if(!live) return;
+  const dist = liveDist(), durH = (Date.now()-live.t0)/3600000;
+  navigator.geolocation.clearWatch(live.watch);
+  clearInterval(liveTimer);
+  const LV = live; live = null;
+  $('livebar').classList.remove('on');
+  $('fabcol').style.display='';
+  traceLayer.clearLayers(); liveLine=null; liveMark=null;
+  if(dist < 200){ toast('Aventure trop courte \u2014 rien à enregistrer'); renderAll(); return; }
+  const kmh = (dist/1000)/Math.max(durH, 0.01);
+  const sp = kmh<5.5 ? 'marche' : (kmh<7.5 ? 'rando' : 'course');
+  const mult = elanMult(), gMult = gearSportMult(sp);
+  const km = dist/1000;
+  const base = Math.round(km*XP_KM[sp]) + Math.round(LV.hexNew*2*gearHexMult());
+  const dxp = Math.round(LV.discXP*gearDiscMult());
+  const xp = Math.round((base+dxp)*mult*gMult);
+  const items = [];
+  const rolls = 1 + LV.disc.filter(d=>d.type!=='rune').length;
+  const chance = Math.min(.9, .22+.035*km) * (1+gearLootPct()/100);
+  for(let i=0; i<rolls && items.length<3; i++){
+    if(Math.random() < Math.min(.95, chance)){ const it=makeItem(); items.push(it); state.inv.push(it); }
+  }
+  const before = levelOf(state.xp);
+  state.xp += xp; state.km += dist;
+  const after = levelOf(state.xp);
+  state.outings.unshift({date:Date.now(), sport:sp, dist, dplus:0, hexNew:LV.hexNew, disc:LV.disc.length, loot:items.length, xp, source:'live'});
+  save(); renderAll();
+  showResult({xp, km, dplus:0, sp, mult, gMult, newHexes:LV.hexNew, newDisc:LV.disc, items, poiCount:(Object.keys(LV.cache).length||-1), lvlBefore:before, lvlAfter:after});
+}
+
+/* ---------- traçage manuel ---------- */
+let tracing=false, tracePts=[], sport='course';
+function startTrace(){
+  tracing=true; tracePts=[];
+  $('sh-title').textContent='Tracer une sortie';
+  $('sh-hint').textContent='Tape sur la carte pour placer les points de ton parcours.';
+  $('sh-dp-wrap').style.display='none';
+  $('sh-pts-wrap').style.display='block';
+  $('sh-undo').style.display='block';
+  updateTraceUI();
+  $('sheet').classList.add('open');
+}
+function addTracePoint(ll){
+  tracePts.push([ll.lat,ll.lng]);
+  if(!traceLine){ traceLine = L.polyline(tracePts,{color:'#211f1a',weight:3,dashArray:'6 7'}).addTo(traceLayer); }
+  else traceLine.setLatLngs(tracePts);
+  L.circleMarker(ll,{radius:4,color:'#211f1a',fillColor:'#fbf9f4',fillOpacity:1,weight:2}).addTo(traceLayer);
+  updateTraceUI();
+}
+function traceDist(){
+  let d=0; for(let i=1;i<tracePts.length;i++) d+=haver(tracePts[i-1],tracePts[i]);
+  return d;
+}
+function updateTraceUI(){
+  $('sh-km').textContent = fmtKm(traceDist());
+  $('sh-pts').textContent = tracePts.length;
+  $('sh-go').disabled = traceDist() < 300;
+}
+function endTraceMode(){
+  tracing=false; tracePts=[]; traceLine=null; traceLayer.clearLayers();
+  $('sheet').classList.remove('open');
+}
+
+/* ---------- import GPX ---------- */
+let gpxPending = null;
+function handleGPX(file){
+  const rd = new FileReader();
+  rd.onload = () => {
+    try{
+      const xml = new DOMParser().parseFromString(rd.result,'application/xml');
+      let pts = [...xml.querySelectorAll('trkpt')];
+      if(!pts.length) pts = [...xml.querySelectorAll('rtept')];
+      if(pts.length < 2){ toast('Aucune trace trouvée dans ce fichier'); return; }
+      const path=[], eles=[], times=[];
+      for(const p of pts){
+        path.push([parseFloat(p.getAttribute('lat')), parseFloat(p.getAttribute('lon'))]);
+        const e=p.querySelector('ele'); eles.push(e?parseFloat(e.textContent):null);
+        const t=p.querySelector('time'); times.push(t?Date.parse(t.textContent):null);
+      }
+      let dist=0; for(let i=1;i<path.length;i++) dist+=haver(path[i-1],path[i]);
+      let dplus=0, ref=eles.find(e=>e!=null);
+      if(ref!=null){ for(const e of eles){ if(e==null) continue; if(e>ref+3){ dplus+=e-ref; ref=e; } else if(e<ref) ref=e; } }
+      dplus=Math.round(dplus);
+      let sug='course';
+      const t0=times.find(t=>t), t1=[...times].reverse().find(t=>t);
+      if(t0&&t1&&t1>t0){
+        const kmh = (dist/1000)/((t1-t0)/3600000);
+        sug = kmh<5.5 ? 'marche' : (kmh<7.5||dplus>dist/1000*25 ? 'rando' : 'course');
+      } else if(dplus > dist/1000*25) sug='rando';
+      gpxPending = {path, dist, dplus, name:file.name};
+      sport = sug; syncSportChips();
+      $('sh-title').textContent='Importer : '+file.name.replace(/\.gpx$/i,'');
+      $('sh-hint').textContent='Trace GPX chargée — choisis le sport et valide.';
+      $('sh-km').textContent=fmtKm(dist);
+      $('sh-dp').textContent=dplus+' m';
+      $('sh-dp-wrap').style.display='block';
+      $('sh-pts-wrap').style.display='none';
+      $('sh-undo').style.display='none';
+      $('sh-go').disabled=false;
+      const line = L.polyline(path,{color:'#211f1a',weight:3,dashArray:'6 7'}).addTo(traceLayer);
+      map.fitBounds(line.getBounds(),{padding:[40,40]});
+      showView('carte');
+      $('sheet').classList.add('open');
+    }catch(e){ toast('Fichier GPX illisible'); }
+  };
+  rd.readAsText(file);
+}
+
+/* ---------- traitement d'une sortie ---------- */
+function samplePath(path){
+  const ids = new Set();
+  const mark = (lat,lng)=>{ const h=hexAt(lat,lng); ids.add(h.q+'_'+h.r); };
+  mark(path[0][0],path[0][1]);
+  for(let i=1;i<path.length;i++){
+    const a=path[i-1], b=path[i], d=haver(a,b), n=Math.max(1,Math.ceil(d/70));
+    for(let k=1;k<=n;k++) mark(a[0]+(b[0]-a[0])*k/n, a[1]+(b[1]-a[1])*k/n);
+  }
+  return ids;
+}
+async function processOuting(path, sp, dist, dplus, source){
+  toast('Lecture du terrain\u2026');
+  let pois = null;
+  try{ pois = await fetchPOIs(pathBBox(path).join(',')); }catch(e){ pois = null; }
+  const offline = (pois === null);
+  if(offline) pois = [];
+  const boost = pois.length === 0; // hors ligne ou zone sans données : procédural généreux
+  const mult = elanMult();
+  const gMult = gearSportMult(sp);
+  const ids = samplePath(path);
+  const newHexes=[], newDisc=[], hexHasReal={};
+  // découvertes réelles : un POI OSM situé dans un hexagone traversé, jamais découvert
+  for(const p of pois){
+    if(state.poiIds[p.id]) continue;
+    const hx = hexAt(p.lat, p.lng), hid = hx.q+'_'+hx.r;
+    const near = ids.has(hid) || hexNeighbors(hx.q, hx.r).some(n=>ids.has(n));
+    if(!near){
+      if(!state.spotted[p.id] && Object.keys(state.spotted).length < 400) state.spotted[p.id] = {lat:p.lat, lng:p.lng};
+      continue;
+    }
+    delete state.spotted[p.id];
+    if(newDisc.length >= 25) break;
+    const c = classifyPOI(p);
+    const rec = {type:c.type, name:c.name, glyph:c.glyph, hex:hid, lat:p.lat, lng:p.lng, date:Date.now(), real:true};
+    state.poiIds[p.id] = 1;
+    state.disc.push(rec); newDisc.push(rec); hexHasReal[hid] = true;
+  }
+  // capture des hexagones + découvertes procédurales de secours
+  for(const id of ids){
+    if(state.hexes[id]) continue;
+    state.hexes[id] = Date.now();
+    newHexes.push(id);
+    if(hexHasReal[id]) continue;
+    const [q,r] = id.split('_').map(Number);
+    const dc = discoveryAt(q,r,boost);
+    if(dc){
+      const c = hexCenter(q,r);
+      const rec = {...dc, hex:id, lat:c.lat, lng:c.lng, date:Date.now()};
+      state.disc.push(rec); newDisc.push(rec);
+    }
+  }
+  const km = dist/1000;
+  let base = Math.round(km * XP_KM[sp]) + Math.round(dplus/10) + Math.round(newHexes.length*2*gearHexMult());
+  let dxp = Math.round(newDisc.reduce((s,d)=>s+XP_DISC[d.type],0)*gearDiscMult());
+  const xp = Math.round((base+dxp)*mult*gMult);
+  // butin
+  const items = [];
+  const rolls = 1 + newDisc.filter(d=>d.type!=='rune').length;
+  const chance = Math.min(.9, .22 + .035*km) * (1 + gearLootPct()/100);
+  for(let i=0; i<rolls && items.length<3; i++){
+    if(Math.random() < Math.min(.95, chance)){
+      const it = makeItem();
+      items.push(it); state.inv.push(it);
+    }
+  }
+  const before = levelOf(state.xp);
+  state.xp += xp;
+  state.km += dist; state.dplus += dplus;
+  const after = levelOf(state.xp);
+  state.outings.unshift({date:Date.now(), sport:sp, dist, dplus, hexNew:newHexes.length, disc:newDisc.length, loot:items.length, xp, source});
+  save();
+  for(const id of newHexes) drawHex(id);
+  for(const d of newDisc) drawDisc(d);
+  drawSpots();
+  renderAll();
+  showResult({xp, km, dplus, sp, mult, gMult, newHexes:newHexes.length, newDisc, items, poiCount:(offline?-1:pois.length), lvlBefore:before, lvlAfter:after});
+}
+function showResult(r){
+  const xel = $('rm-xp'), t0 = performance.now();
+  (function tick(t){
+    const k = Math.min(1, (t-t0)/700);
+    xel.textContent = Math.round(r.xp*(0.15+0.85*k*k));
+    if(k<1) requestAnimationFrame(tick); else xel.textContent = r.xp;
+  })(t0);
+  if(navigator.vibrate && r.newDisc.length) navigator.vibrate(60);
+  $('rm-lvlup').innerHTML = r.lvlAfter>r.lvlBefore
+    ? '<div class="lvlup">⬆ Niveau '+r.lvlAfter+' — '+esc(titleOf(r.lvlAfter))+' !</div>' : '';
+  let g='';
+  g += row(SPORT_ICON[r.sp]+' '+SPORT_NAME[r.sp], fmtKm(r.km*1000));
+  if(r.dplus>0) g += row('⛰ Dénivelé', '+'+r.dplus+' m');
+  g += row('⬡ Nouveaux hexagones', r.newHexes || 'aucun');
+  g += row('⚲ Lieux réels analysés', r.poiCount<0 ? 'hors ligne' : r.poiCount);
+  if(r.mult>1) g += row('↯ Élan', '×'+r.mult.toFixed(1));
+  if(r.gMult>1) g += row('🎒 Équipement', '×'+r.gMult.toFixed(2));
+  $('rm-gains').innerHTML=g;
+  let d='';
+  for(const x of r.newDisc.slice(0,8)){
+    d += '<div class="disc"><div class="dico '+x.type+'">'+x.glyph+'</div><div class="t"><b>'+esc(x.name)+'</b><span>'+(x.real?'Lieu réel · ':'')+(x.type==='rune'?'Rune gravée au carnet · +25 XP':x.type==='ruine'?'Vestige exploré · +60 XP':'Sanctuaire découvert · +150 XP')+'</span></div></div>';
+  }
+  if(r.newDisc.length>8) d+='<p style="font-size:13px;color:var(--ink-soft);margin:6px 0 0;">\u2026et '+(r.newDisc.length-8)+' autres découvertes au carnet.</p>';
+  if(r.items.length){
+    d += '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:var(--ink-soft);margin:14px 2px 4px;">Butin</div>';
+    for(const it of r.items) d += itemHTML(it,'');
+  }
+  $('rm-disc').innerHTML=d;
+  $('rm-title').textContent = r.newDisc.some(x=>x.type==='sanctuaire') ? 'Découverte majeure !' : 'Sortie terminée !';
+  $('veil').classList.add('open');
+}
+function row(l,v){ return '<div class="gainrow"><span>'+l+'</span><b>'+v+'</b></div>'; }
+
+/* ---------- rendu global ---------- */
+function renderAll(){
+  const lvl=levelOf(state.xp), cur=cumXP(lvl), next=cumXP(lvl+1);
+  $('lvl-n').textContent=lvl;
+  $('lvl-t').textContent=titleOf(lvl);
+  $('lvl-bar').style.width = Math.min(100, 100*(state.xp-cur)/(next-cur))+'%';
+  const m=elanMult();
+  $('elan-v').textContent='×'+m.toFixed(1);
+  $('elan').classList.toggle('hot', m>=1.3);
+  $('st-km').textContent=(state.km/1000).toLocaleString('fr-FR',{maximumFractionDigits:1});
+  $('st-hex').textContent=Object.keys(state.hexes).length.toLocaleString('fr-FR');
+  $('st-out').textContent=state.outings.length;
+  $('st-dp').textContent=Math.round(state.dplus).toLocaleString('fr-FR');
+  // futhark
+  const got=new Set(state.disc.filter(d=>d.type==='rune').map(d=>d.glyph));
+  $('futh').innerHTML=FUTHARK.map(([g,n])=>'<div class="fu'+(got.has(g)?' got':'')+'"><span class="g">'+g+'</span><span class="n">'+n+'</span></div>').join('');
+  $('futh-count').textContent='· '+got.size+'/24';
+  // découvertes
+  const dl=$('disc-list');
+  if(!state.disc.length) dl.innerHTML='<div style="font-size:13.5px;color:var(--ink-soft);text-align:center;padding:6px;">Rien pour l\u2019instant — pars explorer, les runes t\u2019attendent quelque part.</div>';
+  else dl.innerHTML=[...state.disc].reverse().slice(0,40).map((d,i)=>{
+    const idx=state.disc.length-1-i;
+    return '<div class="disc"><div class="dico '+d.type+'">'+d.glyph+'</div><div class="t"><b>'+esc(d.name)+'</b><span>'+fmtDate(d.date)+'</span></div><button class="go" data-d="'+idx+'">Voir</button></div>';
+  }).join('');
+  // sorties
+  const ol=$('out-list');
+  if(!state.outings.length) ol.innerHTML='<div style="font-size:13.5px;color:var(--ink-soft);text-align:center;padding:6px;">Aucune sortie — trace ton premier parcours sur la carte ou importe un GPX.</div>';
+  else ol.innerHTML=state.outings.slice(0,50).map(o=>
+    '<div class="outing"><div class="oico">'+SPORT_ICON[o.sport]+'</div><div class="t"><b>'+SPORT_NAME[o.sport]+' · '+fmtKm(o.dist)+(o.dplus?' · '+o.dplus+' m D+':'')+'</b><span>'+fmtDate(o.date)+' · '+o.hexNew+' hexagones · '+o.disc+' découvertes'+(o.loot?' · '+o.loot+' butin':'')+(o.source==='gpx'?' · GPX':'')+'</span></div><div class="oxp">+'+o.xp+'</div></div>'
+  ).join('');
+  // profil
+  $('pf-name').value=state.name;
+  renderGear();
+  buildRegions($('pf-regions'), state.region, pfPickRegion);
+}
+function pfPickRegion(k){
+  state.region=k; save();
+  buildRegions($('pf-regions'), k, pfPickRegion);
+  redrawAll(); renderAll();
+  toast('Tu portes désormais les couleurs de '+REGIONS[k].name);
+}
+function buildRegions(el, sel, onpick){
+  el.innerHTML='';
+  for(const k in REGIONS){
+    const b=document.createElement('button');
+    b.className='region'+(k===sel?' sel':'');
+    b.innerHTML='<span class="c" style="background:'+REGIONS[k].c+'"></span>'+REGIONS[k].name;
+    b.onclick=()=>onpick(k);
+    el.appendChild(b);
+  }
+}
+
+/* ---------- équipement, sac, records ---------- */
+function renderGear(){
+  let eh='';
+  for(const s in SLOTS){
+    const it=equipped(s);
+    eh += '<div class="slotrow"><div class="slotico">'+SLOTS[s].icon+'</div><div style="flex:1;min-width:0;">'
+      + (it
+        ? '<b style="font-size:14px;">'+esc(it.name)+'</b><span style="display:block;font-size:12px;color:var(--ink-soft);"><span class="rar" style="background:'+RARS[it.rar].c+'">'+RARS[it.rar].k+'</span>'+bonusText(it)+'</span>'
+        : '<b style="font-size:14px;color:var(--ink-soft);">'+SLOTS[s].label+'</b><span style="display:block;font-size:12px;color:var(--ink-soft);">emplacement vide</span>')
+      + '</div>' + (it ? '<button class="ibtn un" data-un="'+s+'">Retirer</button>' : '') + '</div>';
+  }
+  $('equip-card').innerHTML=eh;
+  const inv = state.inv.filter(i=>!Object.values(state.equip).includes(i.id));
+  $('inv-count').textContent='· '+state.inv.length;
+  $('inv-list').innerHTML = inv.length
+    ? inv.map(it=>itemHTML(it,
+        '<div style="display:flex;flex-direction:column;gap:4px;flex:0 0 auto;"><button class="ibtn eq" data-eq="'+it.id+'">Équiper</button><button class="ibtn rc" data-rc="'+it.id+'">Recycler</button></div>'
+      )).join('')
+    : '<div style="font-size:13px;color:var(--ink-soft);text-align:center;padding:4px;">Sac vide — le butin tombe pendant les sorties, surtout en découvrant vestiges et sanctuaires.</div>';
+  const lvl=levelOf(state.xp);
+  $('pf-meta').innerHTML = esc(titleOf(lvl))+' · niveau '+lvl+' · '+REGIONS[state.region].name+'<br>explore depuis le '+new Date(state.created).toLocaleDateString('fr-FR');
+  const longest=state.outings.reduce((m,o)=>Math.max(m,o.dist),0);
+  const bdp=state.outings.reduce((m,o)=>Math.max(m,o.dplus||0),0);
+  const bxp=state.outings.reduce((m,o)=>Math.max(m,o.xp),0);
+  const km={course:0,marche:0,rando:0};
+  for(const o of state.outings) km[o.sport]+=o.dist;
+  const sanc=state.disc.filter(d=>d.type==='sanctuaire').length;
+  let rh='';
+  rh += row('Plus longue sortie', longest?fmtKm(longest):'—');
+  rh += row('Meilleur dénivelé', bdp?'+'+bdp+' m':'—');
+  rh += row('Meilleure récolte', bxp?'+'+bxp+' XP':'—');
+  rh += row('Sanctuaires découverts', sanc||'—');
+  rh += row('🏃 / 🚶 / 🥾', [km.course,km.marche,km.rando].map(v=>(v/1000).toFixed(0)).join(' / ')+' km');
+  $('records').innerHTML=rh;
+}
+
+/* ---------- style de carte ---------- */
+function applyMapStyle(){ document.getElementById('map').classList.toggle('ancien', !!state && state.mapstyle==='ancien'); }
+function syncMSChips(){ document.querySelectorAll('[data-ms]').forEach(b=>b.classList.toggle('sel', !!state && b.dataset.ms===state.mapstyle)); }
+
+/* ---------- navigation ---------- */
+function showView(v){
+  document.querySelectorAll('.view').forEach(x=>x.classList.remove('on'));
+  document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('on', x.dataset.v===v));
+  $('v-'+v).classList.add('on');
+  if(v==='carte' && map) setTimeout(()=>map.invalidateSize(),60);
+}
+function syncSportChips(){
+  document.querySelectorAll('#sh-sports .sport').forEach(b=>b.classList.toggle('sel', b.dataset.s===sport));
+}
+
+/* ---------- events ---------- */
+function bind(){
+  document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>showView(t.dataset.v));
+  document.querySelectorAll('#sh-sports .sport').forEach(b=>b.onclick=()=>{ sport=b.dataset.s; syncSportChips(); });
+  document.querySelectorAll('[data-ms]').forEach(b=>b.onclick=()=>{ if(!state) return; state.mapstyle=b.dataset.ms; save(); applyMapStyle(); syncMSChips(); });
+  $('btn-trace').onclick=()=>{ if(live){ toast('Termine ton aventure d\u2019abord'); return; } gpxPending=null; startTrace(); };
+  $('btn-gpx').onclick=()=>{ if(live){ toast('Termine ton aventure d\u2019abord'); return; } $('gpx-input').click(); };
+  $('btn-gpx2').onclick=()=>{ if(live){ toast('Termine ton aventure d\u2019abord'); return; } $('gpx-input').click(); };
+  $('btn-live').onclick=()=>{ if(live) return; startLive(); };
+  $('lb-end').onclick=endLive;
+  $('btn-scout').onclick=scoutAround;
+  $('gpx-input').onchange=e=>{ if(e.target.files[0]) handleGPX(e.target.files[0]); e.target.value=''; };
+  $('sh-cancel').onclick=()=>{ gpxPending=null; endTraceMode(); };
+  $('sh-undo').onclick=()=>{
+    if(!tracePts.length) return;
+    tracePts.pop(); traceLayer.clearLayers(); traceLine=null;
+    if(tracePts.length){ traceLine=L.polyline(tracePts,{color:'#211f1a',weight:3,dashArray:'6 7'}).addTo(traceLayer);
+      tracePts.forEach(p=>L.circleMarker(p,{radius:4,color:'#211f1a',fillColor:'#fbf9f4',fillOpacity:1,weight:2}).addTo(traceLayer)); }
+    updateTraceUI();
+  };
+  $('sh-go').onclick=()=>{
+    if(gpxPending){
+      const g=gpxPending; gpxPending=null; endTraceMode();
+      processOuting(g.path, sport, g.dist, g.dplus, 'gpx');
+    } else {
+      const pts=[...tracePts], d=traceDist(); endTraceMode();
+      processOuting(pts, sport, d, 0, 'trace');
+    }
+  };
+  $('rm-close').onclick=()=>$('veil').classList.remove('open');
+  $('btn-loc').onclick=()=>{
+    if(navigator.geolocation) navigator.geolocation.getCurrentPosition(
+      p=>map.setView([p.coords.latitude,p.coords.longitude],14),
+      ()=>toast('Position indisponible'));
+    else toast('Position indisponible');
+  };
+  $('disc-list').addEventListener('click',e=>{
+    const b=e.target.closest('[data-d]'); if(!b) return;
+    const d=state.disc[+b.dataset.d]; if(!d) return;
+    showView('carte'); map.setView([d.lat,d.lng],15);
+  });
+  $('inv-list').addEventListener('click', e=>{
+    const eq=e.target.closest('[data-eq]'), rc=e.target.closest('[data-rc]');
+    if(eq){
+      const it=state.inv.find(i=>i.id===eq.dataset.eq);
+      if(it){ state.equip[it.slot]=it.id; save(); renderAll(); toast(it.name+' \u2014 équipé'); }
+    }
+    if(rc){
+      const idx=state.inv.findIndex(i=>i.id===rc.dataset.rc);
+      if(idx>-1){
+        const it=state.inv[idx];
+        for(const s in state.equip) if(state.equip[s]===it.id) state.equip[s]=null;
+        state.inv.splice(idx,1);
+        state.xp += RARS[it.rar].xp;
+        save(); renderAll();
+        toast(it.name+' recyclé \u00b7 +'+RARS[it.rar].xp+' XP');
+      }
+    }
+  });
+  $('equip-card').addEventListener('click', e=>{
+    const un=e.target.closest('[data-un]');
+    if(un){ state.equip[un.dataset.un]=null; save(); renderAll(); }
+  });
+  $('pf-name').onchange=e=>{ state.name=e.target.value.trim()||state.name; e.target.value=state.name; save(); toast('À bientôt sur les chemins, '+state.name); };
+  $('btn-export').onclick=()=>{
+    const blob=new Blob([JSON.stringify(state)],{type:'application/json'});
+    const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+    a.download='rune-sauvegarde.json'; a.click(); URL.revokeObjectURL(a.href);
+  };
+  $('btn-import').onclick=()=>$('save-input').click();
+  $('save-input').onchange=e=>{
+    const f=e.target.files[0]; if(!f) return;
+    const rd=new FileReader();
+    rd.onload=()=>{ try{
+      const s=JSON.parse(rd.result);
+      if(!s||typeof s.xp!=='number'||!s.region) throw 0;
+      state=s; migrate(); save(); redrawAll(); renderAll(); applyMapStyle(); syncMSChips(); toast('Sauvegarde restaurée');
+    }catch(err){ toast('Fichier de sauvegarde invalide'); } };
+    rd.readAsText(f); e.target.value='';
+  };
+  $('btn-reset').onclick=()=>{
+    if(!confirm('Tout effacer ? Ton explorateur, tes hexagones et tes découvertes seront perdus.')) return;
+    try{ localStorage.removeItem(KEY); }catch(e){}
+    location.reload();
+  };
+}
+
+/* ---------- onboarding ---------- */
+function initOnboard(){
+  let pick=null;
+  buildRegions($('ob-regions'), null, function onpick(k){ pick=k; buildRegions($('ob-regions'),k,onpick); check(); });
+  const check=()=>{ $('ob-go').disabled = !($('ob-name').value.trim() && pick); };
+  $('ob-name').addEventListener('input',check);
+  $('ob-go').onclick=()=>{
+    state = {name:$('ob-name').value.trim(), region:pick, xp:0, km:0, dplus:0, hexes:{}, disc:[], outings:[], created:Date.now()};
+    migrate();
+    const starter = {id:'starter', slot:'chaussures', rar:0, name:'Chaussures du Pèlerin', bonus:{kind:'sport', sport:'course', pct:5}};
+    state.inv=[starter]; state.equip.chaussures='starter';
+    save();
+    $('onboard').style.display='none';
+    boot();
+    toast('Bienvenue, '+state.name+' de '+REGIONS[pick].name+' !');
+  };
+}
+
+/* ---------- démarrage ---------- */
+function boot(){
+  if(!map) initMap();
+  applyMapStyle(); syncMSChips();
+  redrawAll(); renderAll();
+  setTimeout(()=>map.invalidateSize(),80);
+}
+bind();
+if(state){ $('onboard').style.display='none'; boot(); }
+else initOnboard();
+</script>
+</body>
+</html>
