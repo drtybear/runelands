@@ -32,7 +32,8 @@
         {
           "locationWhenInUsePermission": "rune. utilise votre position pour capturer les hexagones autour de vous."
         }
-      ]
+      ],
+      "@maplibre/maplibre-react-native"
     ],
     "extra": {
       "eas": {
