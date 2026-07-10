@@ -27,7 +27,8 @@
         {
           "locationWhenInUsePermission": "rune. utilise votre position pour capturer les hexagones autour de vous."
         }
-      ]
+      ],
+      "expo-status-bar"
     ]
   }
 }
