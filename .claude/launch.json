@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "runelands-web",
+      "runtimeExecutable": "C:\\Program Files\\nodejs\\npm.cmd",
+      "runtimeArgs": ["--prefix", "runelands/app", "run", "web", "--", "--port", "8090"],
+      "port": 8090
+    }
+  ]
+}

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
-import MapView, { Marker, UrlTile } from 'react-native-maps';
 import * as Location from 'expo-location';
+import MapScreen from './components/MapScreen';
 
 type Coords = { latitude: number; longitude: number };
 
@@ -56,28 +56,10 @@ export default function App() {
     );
   }
 
-  return (
-    <View style={styles.container}>
-      <MapView
-        style={styles.map}
-        initialRegion={{
-          latitude: coords.latitude,
-          longitude: coords.longitude,
-          latitudeDelta: 0.01,
-          longitudeDelta: 0.01,
-        }}
-        showsUserLocation
-      >
-        <UrlTile urlTemplate="https://tile.openstreetmap.org/{z}/{x}/{y}.png" maximumZ={19} />
-        <Marker coordinate={coords} title="Vous êtes ici" />
-      </MapView>
-    </View>
-  );
+  return <MapScreen coords={coords} />;
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  map: { flex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
   message: { marginTop: 12, textAlign: 'center' },
 });
