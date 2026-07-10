@@ -11,16 +11,31 @@ export default function App() {
 
   useEffect(() => {
     (async () => {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        setErrorMsg("Accès à la position refusé. Autorisez-le dans les réglages du téléphone pour voir la carte.");
-        return;
+      try {
+        const servicesEnabled = await Location.hasServicesEnabledAsync();
+        if (!servicesEnabled) {
+          setErrorMsg("La localisation est désactivée sur votre téléphone. Activez-la dans les réglages puis rouvrez l'appli.");
+          return;
+        }
+
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') {
+          setErrorMsg("Accès à la position refusé. Autorisez-le dans les réglages du téléphone pour voir la carte.");
+          return;
+        }
+
+        const position = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+        setCoords({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        });
+      } catch (error) {
+        setErrorMsg(
+          `Impossible de récupérer votre position : ${error instanceof Error ? error.message : String(error)}`
+        );
       }
-      const position = await Location.getCurrentPositionAsync({});
-      setCoords({
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude,
-      });
     })();
   }, []);
 
