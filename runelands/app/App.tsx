@@ -1,8 +1,12 @@
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import CarteScreen from './components/CarteScreen';
-import PlaceholderScreen from './components/PlaceholderScreen';
+import CarnetScreen from './components/CarnetScreen';
+import SortiesScreen from './components/SortiesScreen';
+import ProfilScreen from './components/ProfilScreen';
+import OnboardingScreen from './components/OnboardingScreen';
+import { GameProvider, useGame } from './game/store';
 import { colors } from './theme';
 
 const TABS = [
@@ -14,34 +18,34 @@ const TABS = [
 
 type TabKey = (typeof TABS)[number]['key'];
 
-export default function App() {
+function AppShell() {
+  const { state, loading } = useGame();
   const [activeTab, setActiveTab] = useState<TabKey>('carte');
+
+  if (loading) {
+    return (
+      <View style={[styles.app, styles.center]}>
+        <ActivityIndicator size="large" color={colors.accent} />
+      </View>
+    );
+  }
+
+  if (!state) {
+    return (
+      <View style={styles.app}>
+        <OnboardingScreen />
+        <StatusBar style="dark" />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.app}>
       <View style={styles.content}>
         {activeTab === 'carte' && <CarteScreen />}
-        {activeTab === 'carnet' && (
-          <PlaceholderScreen
-            icon="📜"
-            title="Carnet"
-            description="Vos runes, vestiges et sanctuaires découverts s'afficheront ici."
-          />
-        )}
-        {activeTab === 'sorties' && (
-          <PlaceholderScreen
-            icon="👟"
-            title="Sorties"
-            description="L'historique de vos courses, marches et randos s'affichera ici."
-          />
-        )}
-        {activeTab === 'profil' && (
-          <PlaceholderScreen
-            icon="☉"
-            title="Profil"
-            description="Votre personnage, son niveau, son équipement et son butin s'afficheront ici."
-          />
-        )}
+        {activeTab === 'carnet' && <CarnetScreen />}
+        {activeTab === 'sorties' && <SortiesScreen />}
+        {activeTab === 'profil' && <ProfilScreen />}
       </View>
 
       <View style={styles.tabbar}>
@@ -57,8 +61,17 @@ export default function App() {
   );
 }
 
+export default function App() {
+  return (
+    <GameProvider>
+      <AppShell />
+    </GameProvider>
+  );
+}
+
 const styles = StyleSheet.create({
   app: { flex: 1, backgroundColor: colors.parchment },
+  center: { alignItems: 'center', justifyContent: 'center' },
   content: { flex: 1 },
   tabbar: {
     flexDirection: 'row',
